@@ -61,6 +61,11 @@ int main() {
   }
 
   Image image(WIDTH, HEIGHT);
+  for (int i = 50; i < 55; ++i) {
+    for (int j = 90; j < 100; ++j) {
+      image(i, j) = {.r = 255, .g = 0, .b = 0};
+    }
+  }
 
   bool done = false;
   while (!done) {
@@ -94,7 +99,7 @@ int main() {
         for (int col = 0; col < WIDTH; ++col) {
           uint32_t* ptr = reinterpret_cast<uint32_t*>(pixels + row * pitch +
                                                       col * sizeof(uint32_t));
-          const Color color = {0, 255, 0};
+          const Color& color = image(row, col);
           *ptr =
               0x000000FF | (color.r << 24) | (color.g << 16) | (color.b << 8);
         }
