@@ -9,9 +9,11 @@ constexpr int WIDTH = 640;
 constexpr int HEIGHT = 480;
 
 struct Color {
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
+  Color() {}
+  Color(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
+  uint8_t r = 0;
+  uint8_t g = 0;
+  uint8_t b = 0;
 };
 
 class Image {
@@ -26,10 +28,22 @@ class Image {
     return pixels_[i * width_ + j];
   }
 
+  Color& at(int i, int j) { return this->operator()(i, j); }
+  const Color& at(int i, int j) const { return this->operator()(i, j); }
+
  private:
   int width_;
   std::vector<Color> pixels_;
 };
+
+void DrawSquare(Image* image, int x, int y, int width, int height,
+                const Color& color) {
+  for (int i = y; i < y + height; ++i) {
+    for (int j = x; j < x + width; ++j) {
+      image->at(i, j) = color;
+    }
+  }
+}
 
 int main() {
   SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);
@@ -61,11 +75,7 @@ int main() {
   }
 
   Image image(WIDTH, HEIGHT);
-  for (int i = 50; i < 55; ++i) {
-    for (int j = 90; j < 100; ++j) {
-      image(i, j) = {.r = 255, .g = 0, .b = 0};
-    }
-  }
+  DrawSquare(&image, 50, 70, 20, 30, Color(255, 0, 0));
 
   bool done = false;
   while (!done) {
