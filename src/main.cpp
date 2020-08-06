@@ -30,9 +30,9 @@ struct Vec3 {
 
 using Vec3d = Vec3<double>;
 
-class Image {
+class Raster {
  public:
-  Image(int width, int height) : width_(width), height_(height) {
+  Raster(int width, int height) : width_(width), height_(height) {
     pixels_.resize(width * height);
   }
 
@@ -69,11 +69,11 @@ void PrintVector(const std::string& label, const Vec3d& v) {
   printf("%s (x=%f, y=%f, z=%f)\n", label.c_str(), v.x, v.y, v.z);
 }
 
-void DrawSquare(Image* image, int x, int y, int width, int height,
+void DrawSquare(Raster* raster, int x, int y, int width, int height,
                 const Color& color) {
   for (int i = y; i < y + height; ++i) {
     for (int j = x; j < x + width; ++j) {
-      image->at(i, j) = color;
+      raster->at(i, j) = color;
     }
   }
 }
@@ -84,9 +84,9 @@ Vec3d CameraToScreen(const Vec3d& p) {
 }
 
 // Project from screen space to raster space
-Vec3d ScreenToRaster(const Vec3d& p, const Image& image) {
-  return Vec3d((1 + p.x) * 0.5 * image.width(),
-               (1 + p.y) * 0.5 * image.height(), p.z);
+Vec3d ScreenToRaster(const Vec3d& p, const Raster& raster) {
+  return Vec3d((1 + p.x) * 0.5 * raster.width(),
+               (1 + p.y) * 0.5 * raster.height(), p.z);
 }
 
 // The magnitude of the cross product between (c - a) and (b - a)
@@ -96,7 +96,7 @@ double EdgeFunction(const Vec3d& a, const Vec3d& b, const Vec3d& c) {
 }
 
 // Draws a triangle with coordinate specified in raster space
-void DrawTriangle(Image* image, const Vec3d& p0, const Vec3d& p1,
+void DrawTriangle(Raster* raster, const Vec3d& p0, const Vec3d& p1,
                   const Vec3d& p2, const Color& color) {
   const double area = EdgeFunction(p0, p1, p2);
 
@@ -104,10 +104,10 @@ void DrawTriangle(Image* image, const Vec3d& p0, const Vec3d& p1,
   int xmax = static_cast<int>(std::max(p0.x, std::max(p1.x, p2.x)));
   int ymin = static_cast<int>(std::min(p0.y, std::min(p1.y, p2.y)));
   int ymax = static_cast<int>(std::max(p0.y, std::max(p1.y, p2.y)));
-  xmin = Clip(xmin, 0, image->width());
-  xmax = Clip(xmax, 0, image->width());
-  ymin = Clip(ymin, 0, image->height());
-  ymax = Clip(ymax, 0, image->height());
+  xmin = Clip(xmin, 0, raster->width());
+  xmax = Clip(xmax, 0, raster->width());
+  ymin = Clip(ymin, 0, raster->height());
+  ymax = Clip(ymax, 0, raster->height());
   printf("xmin=%d, xmax=%d, ymin=%d, ymax=%d\n", xmin, xmax, ymin, ymax);
 
   for (int i = ymin; i <= ymax; ++i) {
@@ -124,7 +124,7 @@ void DrawTriangle(Image* image, const Vec3d& p0, const Vec3d& p1,
         w0 /= area;
         w1 /= area;
         w2 /= area;
-        image->at(i, j) = color;
+        raster->at(i, j) = color;
       }
     }
   }
@@ -159,8 +159,8 @@ int main() {
     return 1;
   }
 
-  Image image(WIDTH, HEIGHT);
-  DrawSquare(&image, 50, 70, 20, 30, Color(255, 0, 0));
+  Raster raster(WIDTH, HEIGHT);
+  DrawSquare(&raster, 50, 70, 20, 30, Color(255, 0, 0));
 
   Vec3d v2 = {-48, -10, 82};
   Vec3d v1 = {29, -15, 44};
@@ -170,15 +170,15 @@ int main() {
   Color c0 = {0, 0, 255};
 
   // Project to screen space
-  Vec3d p0 = ScreenToRaster(CameraToScreen(v0), image);
-  Vec3d p1 = ScreenToRaster(CameraToScreen(v1), image);
-  Vec3d p2 = ScreenToRaster(CameraToScreen(v2), image);
+  Vec3d p0 = ScreenToRaster(CameraToScreen(v0), raster);
+  Vec3d p1 = ScreenToRaster(CameraToScreen(v1), raster);
+  Vec3d p2 = ScreenToRaster(CameraToScreen(v2), raster);
   PrintVector("p0", p0);
   PrintVector("p1", p1);
   PrintVector("p2", p2);
-  DrawTriangle(&image, p0, p1, p2, c0);
+  DrawTriangle(&raster, p0, p1, p2, c0);
 
-  DrawTriangle(&image, Vec3d(80, 80, 1), Vec3d(100, 80, 1), Vec3d(100, 100, 1),
+  DrawTriangle(&raster, Vec3d(80, 80, 1), Vec3d(100, 80, 1), Vec3d(100, 100, 1),
                Color(0, 255, 0));
 
   bool done = false;
@@ -213,7 +213,7 @@ int main() {
         for (int col = 0; col < WIDTH; ++col) {
           uint32_t* ptr = reinterpret_cast<uint32_t*>(pixels + row * pitch +
                                                       col * sizeof(uint32_t));
-          const Color& color = image(row, col);
+          const Color& color = raster(row, col);
           *ptr =
               0x000000FF | (color.r << 24) | (color.g << 16) | (color.b << 8);
         }
