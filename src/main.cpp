@@ -11,12 +11,13 @@
 constexpr int WIDTH = 640;
 constexpr int HEIGHT = 480;
 
+// Color with components in [0, 1]
 struct Color {
   Color() {}
-  Color(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) {}
-  uint8_t r = 0;
-  uint8_t g = 0;
-  uint8_t b = 0;
+  Color(double r, double g, double b) : r(r), g(g), b(b) {}
+  double r = 0;
+  double g = 0;
+  double b = 0;
 };
 
 template <class T>
@@ -173,14 +174,14 @@ int main() {
   }
 
   Raster raster(WIDTH, HEIGHT);
-  DrawSquare(&raster, 50, 70, 20, 30, Color(255, 0, 0));
+  DrawSquare(&raster, 50, 70, 20, 30, Color(1, 0, 0));
 
   Vec3d v2 = {-48, -10, 82};
   Vec3d v1 = {29, -15, 44};
   Vec3d v0 = {13, 34, 114};
-  Color c2 = {255, 0, 0};
-  Color c1 = {0, 255, 0};
-  Color c0 = {0, 0, 255};
+  Color c2 = {1, 0, 0};
+  Color c1 = {0, 1, 0};
+  Color c0 = {0, 0, 1};
 
   // Project to screen space
   Vec3d p0 = ScreenToRaster(CameraToScreen(v0), raster);
@@ -191,7 +192,7 @@ int main() {
   PrintVector("p2", p2);
   DrawTriangle(&raster, Vertex(p0, c0), Vertex(p1, c1), Vertex(p2, c2));
 
-  const Color green(0, 255, 0);
+  const Color green(0, 1, 0);
   DrawTriangle(&raster, Vertex(Vec3d(80, 80, 1), green),
                Vertex(Vec3d(100, 80, 1), green),
                Vertex(Vec3d(100, 100, 1), green));
@@ -229,8 +230,10 @@ int main() {
           uint32_t* ptr = reinterpret_cast<uint32_t*>(pixels + row * pitch +
                                                       col * sizeof(uint32_t));
           const Color& color = raster(row, col);
-          *ptr =
-              0x000000FF | (color.r << 24) | (color.g << 16) | (color.b << 8);
+          const uint8_t r = static_cast<uint8_t>(color.r * 255);
+          const uint8_t g = static_cast<uint8_t>(color.g * 255);
+          const uint8_t b = static_cast<uint8_t>(color.b * 255);
+          *ptr = 0x000000FF | (r << 24) | (g << 16) | (b << 8);
         }
       }
     }
