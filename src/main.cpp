@@ -18,6 +18,14 @@ struct Color {
   double r = 0;
   double g = 0;
   double b = 0;
+
+  Color operator*(double v) const { return Color(r * v, g * v, b * v); }
+
+  Color operator/(double v) const { return Color(r / v, g / v, b / v); }
+
+  Color operator+(const Color& c) const {
+    return Color(r + c.r, g + c.g, b + c.b);
+  }
 };
 
 template <class T>
@@ -121,6 +129,17 @@ void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
   ymin = Clip(ymin, 0, raster->height());
   ymax = Clip(ymax, 0, raster->height());
 
+  // Divide vertex attribute (color) by vertex z do to perspective correct
+  // interpolation
+  const Color c0 = v0.color / v0.position.z;
+  const Color c1 = v1.color / v1.position.z;
+  const Color c2 = v2.color / v2.position.z;
+
+  // Pre-compute per-vertex 1/z
+  const double one_on_z0 = 1.0 / v0.position.z;
+  const double one_on_z1 = 1.0 / v1.position.z;
+  const double one_on_z2 = 1.0 / v2.position.z;
+
   for (int i = ymin; i <= ymax; ++i) {
     for (int j = xmin; j <= xmax; ++j) {
       const Vec3d p = {j + 0.5, i + 0.5, 0};
@@ -135,10 +154,11 @@ void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
         w0 /= area;
         w1 /= area;
         w2 /= area;
-        const float r = w0 * v0.color.r + w1 * v1.color.r + w2 * v2.color.r;
-        const float g = w0 * v0.color.g + w1 * v1.color.g + w2 * v2.color.g;
-        const float b = w0 * v0.color.b + w1 * v1.color.b + w2 * v2.color.b;
-        raster->at(i, j) = Color(r, g, b);
+        const double z =
+            1.0 / (w0 * one_on_z0 + w1 * one_on_z1 + w2 * one_on_z2);
+        // Interpolate color based on the z-weighted vertices colors
+        const Color color = (c0 * w0 + c1 * w1 + c2 * w2) * z;
+        raster->at(i, j) = color;
       }
     }
   }
