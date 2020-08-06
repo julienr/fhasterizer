@@ -39,11 +39,30 @@ struct Vec3 {
 
 using Vec3d = Vec3<double>;
 
+template <class T>
+struct Vec2 {
+  Vec2() {}
+  Vec2(const T& x, const T& y) : x(x), y(y) {}
+  Vec2<T> operator/(double v) const { return Vec2<T>(x / v, y / v); }
+  Vec2<T> operator*(double v) const { return Vec2<T>(x * v, y * v); }
+  Vec2<T> operator+(const Vec2<T>& v) const {
+    return Vec2<T>(x + v.x, y + v.y);
+  }
+
+  T x = T();
+  T y = T();
+};
+
+using Vec2d = Vec2<double>;
+
 struct Vertex {
   Vertex() {}
   Vertex(const Vec3d& pos, const Color& col) : position(pos), color(col) {}
+  Vertex(const Vec3d& pos, const Color& col, const Vec2d& uv)
+      : position(pos), color(col), uv(uv) {}
   Vec3d position;
   Color color;
+  Vec2d uv;
 };
 
 class Raster {
@@ -113,7 +132,7 @@ double EdgeFunction(const Vec3d& a, const Vec3d& b, const Vec3d& c) {
 
 // Draws a triangle with coordinate specified in raster space
 void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
-                  const Vertex& v2) {
+                  const Vertex& v2, bool checkerboard = false) {
   const Vec3d& p0 = v0.position;
   const Vec3d& p1 = v1.position;
   const Vec3d& p2 = v2.position;
@@ -134,6 +153,10 @@ void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
   const Color c0 = v0.color / v0.position.z;
   const Color c1 = v1.color / v1.position.z;
   const Color c2 = v2.color / v2.position.z;
+
+  const Vec2 uv0 = v0.uv / v0.position.z;
+  const Vec2 uv1 = v1.uv / v1.position.z;
+  const Vec2 uv2 = v2.uv / v2.position.z;
 
   // Pre-compute per-vertex 1/z
   const double one_on_z0 = 1.0 / v0.position.z;
@@ -157,7 +180,14 @@ void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
         const double z =
             1.0 / (w0 * one_on_z0 + w1 * one_on_z1 + w2 * one_on_z2);
         // Interpolate color based on the z-weighted vertices colors
-        const Color color = (c0 * w0 + c1 * w1 + c2 * w2) * z;
+        Color color = (c0 * w0 + c1 * w1 + c2 * w2) * z;
+        const Vec2d uv = (uv0 * w0 + uv1 * w1 + uv2 * w2) * z;
+        if (checkerboard) {
+          // checkerboard pattern
+          const int M = 10;
+          float p = (fmod(uv.x * M, 1.0) > 0.5) ^ (fmod(uv.y * M, 1.0) < 0.5);
+          color = color * p;
+        }
         raster->at(i, j) = color;
       }
     }
@@ -202,6 +232,9 @@ int main() {
   Color c2 = {1, 0, 0};
   Color c1 = {0, 1, 0};
   Color c0 = {0, 0, 1};
+  Vec2d uv2 = {0, 0};
+  Vec2d uv1 = {1, 0};
+  Vec2d uv0 = {0, 1};
 
   // Project to screen space
   Vec3d p0 = ScreenToRaster(CameraToScreen(v0), raster);
@@ -210,7 +243,8 @@ int main() {
   PrintVector("p0", p0);
   PrintVector("p1", p1);
   PrintVector("p2", p2);
-  DrawTriangle(&raster, Vertex(p0, c0), Vertex(p1, c1), Vertex(p2, c2));
+  DrawTriangle(&raster, Vertex(p0, c0, uv0), Vertex(p1, c1, uv1),
+               Vertex(p2, c2, uv2), true);
 
   const Color green(0, 1, 0);
   DrawTriangle(&raster, Vertex(Vec3d(80, 80, 1), green),
