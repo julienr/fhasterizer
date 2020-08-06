@@ -1,6 +1,9 @@
 // Relevant SDL 2 example (with emscripten):
 // http://hg.libsdl.org/SDL/file/e12c38730512/test/teststreaming.c
+// Scratchpixel rasterizer tutorial
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/rasterization-stage
 #include <cstdio>
+#include <string>
 #include <vector>
 
 #include "SDL.h"
@@ -29,7 +32,7 @@ using Vec3d = Vec3<double>;
 
 class Image {
  public:
-  Image(int width, int height) : width_(width) {
+  Image(int width, int height) : width_(width), height_(height) {
     pixels_.resize(width * height);
   }
 
@@ -42,10 +45,29 @@ class Image {
   Color& at(int i, int j) { return this->operator()(i, j); }
   const Color& at(int i, int j) const { return this->operator()(i, j); }
 
+  int width() const { return width_; }
+  int height() const { return height_; }
+
  private:
   int width_;
+  int height_;
   std::vector<Color> pixels_;
 };
+
+template <class T>
+T Clip(T val, T min, T max) {
+  if (val < min) {
+    return min;
+  } else if (val > max) {
+    return max;
+  } else {
+    return val;
+  }
+}
+
+void PrintVector(const std::string& label, const Vec3d& v) {
+  printf("%s (x=%f, y=%f, z=%f)\n", label.c_str(), v.x, v.y, v.z);
+}
 
 void DrawSquare(Image* image, int x, int y, int width, int height,
                 const Color& color) {
@@ -56,33 +78,37 @@ void DrawSquare(Image* image, int x, int y, int width, int height,
   }
 }
 
-// https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/rasterization-stage
+// Project from camera space to screen space
+Vec3d CameraToScreen(const Vec3d& p) {
+  return Vec3d(p.x / p.z, p.y / p.z, p.z);
+}
+
+// Project from screen space to raster space
+Vec3d ScreenToRaster(const Vec3d& p, const Image& image) {
+  return Vec3d((1 + p.x) * 0.5 * image.width(),
+               (1 + p.y) * 0.5 * image.height(), p.z);
+}
+
 // The magnitude of the cross product between (c - a) and (b - a)
 // Only considers x/y of 3D vector
 double EdgeFunction(const Vec3d& a, const Vec3d& b, const Vec3d& c) {
   return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
 }
 
-// Project from camera space to screen space
-Vec3d CameraToScreen(const Vec3d& p) {
-  return Vec3d(p.x / p.z, p.y / p.z, p.z);
-}
-
-// https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/rasterization-stage
-void DrawTriangle(Image* image, const Vec3d& v0, const Vec3d& v1,
-                  const Vec3d& v2, const Color& color) {
-  // Project to screen space
-  Vec3d p0 = CameraToScreen(v0);
-  Vec3d p1 = CameraToScreen(v1);
-  Vec3d p2 = CameraToScreen(v2);
-
-  // Actual rasterization
+// Draws a triangle with coordinate specified in raster space
+void DrawTriangle(Image* image, const Vec3d& p0, const Vec3d& p1,
+                  const Vec3d& p2, const Color& color) {
   const double area = EdgeFunction(p0, p1, p2);
 
-  const int xmin = static_cast<int>(std::min(p0.x, std::min(p1.x, p2.x)));
-  const int xmax = static_cast<int>(std::max(p0.x, std::max(p1.x, p2.x)));
-  const int ymin = static_cast<int>(std::min(p0.y, std::min(p1.y, p2.y)));
-  const int ymax = static_cast<int>(std::max(p0.y, std::max(p1.y, p2.y)));
+  int xmin = static_cast<int>(std::min(p0.x, std::min(p1.x, p2.x)));
+  int xmax = static_cast<int>(std::max(p0.x, std::max(p1.x, p2.x)));
+  int ymin = static_cast<int>(std::min(p0.y, std::min(p1.y, p2.y)));
+  int ymax = static_cast<int>(std::max(p0.y, std::max(p1.y, p2.y)));
+  xmin = Clip(xmin, 0, image->width());
+  xmax = Clip(xmax, 0, image->width());
+  ymin = Clip(ymin, 0, image->height());
+  ymax = Clip(ymax, 0, image->height());
+  printf("xmin=%d, xmax=%d, ymin=%d, ymax=%d\n", xmin, xmax, ymin, ymax);
 
   for (int i = ymin; i <= ymax; ++i) {
     for (int j = xmin; j <= xmax; ++j) {
@@ -135,6 +161,23 @@ int main() {
 
   Image image(WIDTH, HEIGHT);
   DrawSquare(&image, 50, 70, 20, 30, Color(255, 0, 0));
+
+  Vec3d v2 = {-48, -10, 82};
+  Vec3d v1 = {29, -15, 44};
+  Vec3d v0 = {13, 34, 114};
+  Color c2 = {255, 0, 0};
+  Color c1 = {0, 255, 0};
+  Color c0 = {0, 0, 255};
+
+  // Project to screen space
+  Vec3d p0 = ScreenToRaster(CameraToScreen(v0), image);
+  Vec3d p1 = ScreenToRaster(CameraToScreen(v1), image);
+  Vec3d p2 = ScreenToRaster(CameraToScreen(v2), image);
+  PrintVector("p0", p0);
+  PrintVector("p1", p1);
+  PrintVector("p2", p2);
+  DrawTriangle(&image, p0, p1, p2, c0);
+
   DrawTriangle(&image, Vec3d(80, 80, 1), Vec3d(100, 80, 1), Vec3d(100, 100, 1),
                Color(0, 255, 0));
 
