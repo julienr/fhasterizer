@@ -16,6 +16,17 @@ struct Color {
   uint8_t b = 0;
 };
 
+template <class T>
+struct Vec2 {
+  Vec2() {}
+  Vec2(const T& x, const T& y) : x(x), y(y) {}
+  T x = T();
+  T y = T();
+};
+
+using Vec2i = Vec2<int>;
+using Vec2d = Vec2<double>;
+
 class Image {
  public:
   Image(int width, int height) : width_(width) {
@@ -41,6 +52,42 @@ void DrawSquare(Image* image, int x, int y, int width, int height,
   for (int i = y; i < y + height; ++i) {
     for (int j = x; j < x + width; ++j) {
       image->at(i, j) = color;
+    }
+  }
+}
+
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/rasterization-stage
+// The magnitude of the cross product between (c - a) and (b - a)
+double EdgeFunction(const Vec2d& a, const Vec2d& b, const Vec2d& c) {
+  return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
+}
+
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/rasterization-stage
+void DrawTriangle(Image* image, const Vec2d& p0, const Vec2d& p1,
+                  const Vec2d& p2, const Color& color) {
+  const double area = EdgeFunction(p0, p1, p2);
+
+  const int xmin = static_cast<int>(std::min(p0.x, std::min(p1.x, p2.x)));
+  const int xmax = static_cast<int>(std::max(p0.x, std::max(p1.x, p2.x)));
+  const int ymin = static_cast<int>(std::min(p0.y, std::min(p1.y, p2.y)));
+  const int ymax = static_cast<int>(std::max(p0.y, std::max(p1.y, p2.y)));
+
+  for (int i = ymin; i <= ymax; ++i) {
+    for (int j = xmin; j <= xmax; ++j) {
+      const Vec2d p = {j + 0.5, i + 0.5};
+      auto w0 = EdgeFunction(p1, p2, p);
+      auto w1 = EdgeFunction(p2, p0, p);
+      auto w2 = EdgeFunction(p0, p1, p);
+
+      // If we force winding order, we only need to test positive or negative
+      const bool all_neg = (w0 <= 0) && (w1 <= 0) && (w2 <= 0);
+      const bool all_pos = (w0 >= 0) && (w1 >= 0) && (w2 >= 0);
+      if (all_neg || all_pos) {
+        w0 /= area;
+        w1 /= area;
+        w2 /= area;
+        image->at(i, j) = color;
+      }
     }
   }
 }
@@ -76,6 +123,8 @@ int main() {
 
   Image image(WIDTH, HEIGHT);
   DrawSquare(&image, 50, 70, 20, 30, Color(255, 0, 0));
+  DrawTriangle(&image, Vec2d(80, 80), Vec2d(100, 80), Vec2d(100, 100),
+               Color(0, 255, 0));
 
   bool done = false;
   while (!done) {
