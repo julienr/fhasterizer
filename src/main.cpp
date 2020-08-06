@@ -83,6 +83,8 @@ class Raster {
   int width() const { return width_; }
   int height() const { return height_; }
 
+  void Clear(const Color& c) { std::fill(pixels_.begin(), pixels_.end(), c); }
+
  private:
   int width_;
   int height_;
@@ -224,6 +226,7 @@ int main() {
   }
 
   Raster raster(WIDTH, HEIGHT);
+  raster.Clear(Color(0.5, 0.5, 0.5));
   DrawSquare(&raster, 50, 70, 20, 30, Color(1, 0, 0));
 
   Vec3d v2 = {-48, -10, 82};
