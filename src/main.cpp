@@ -30,6 +30,13 @@ struct Vec3 {
 
 using Vec3d = Vec3<double>;
 
+struct Vertex {
+  Vertex() {}
+  Vertex(const Vec3d& pos, const Color& col) : position(pos), color(col) {}
+  Vec3d position;
+  Color color;
+};
+
 class Raster {
  public:
   Raster(int width, int height) : width_(width), height_(height) {
@@ -96,8 +103,12 @@ double EdgeFunction(const Vec3d& a, const Vec3d& b, const Vec3d& c) {
 }
 
 // Draws a triangle with coordinate specified in raster space
-void DrawTriangle(Raster* raster, const Vec3d& p0, const Vec3d& p1,
-                  const Vec3d& p2, const Color& color) {
+void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
+                  const Vertex& v2) {
+  const Vec3d& p0 = v0.position;
+  const Vec3d& p1 = v1.position;
+  const Vec3d& p2 = v2.position;
+
   const double area = EdgeFunction(p0, p1, p2);
 
   int xmin = static_cast<int>(std::min(p0.x, std::min(p1.x, p2.x)));
@@ -108,7 +119,6 @@ void DrawTriangle(Raster* raster, const Vec3d& p0, const Vec3d& p1,
   xmax = Clip(xmax, 0, raster->width());
   ymin = Clip(ymin, 0, raster->height());
   ymax = Clip(ymax, 0, raster->height());
-  printf("xmin=%d, xmax=%d, ymin=%d, ymax=%d\n", xmin, xmax, ymin, ymax);
 
   for (int i = ymin; i <= ymax; ++i) {
     for (int j = xmin; j <= xmax; ++j) {
@@ -124,7 +134,10 @@ void DrawTriangle(Raster* raster, const Vec3d& p0, const Vec3d& p1,
         w0 /= area;
         w1 /= area;
         w2 /= area;
-        raster->at(i, j) = color;
+        const float r = w0 * v0.color.r + w1 * v1.color.r + w2 * v2.color.r;
+        const float g = w0 * v0.color.g + w1 * v1.color.g + w2 * v2.color.g;
+        const float b = w0 * v0.color.b + w1 * v1.color.b + w2 * v2.color.b;
+        raster->at(i, j) = Color(r, g, b);
       }
     }
   }
@@ -176,10 +189,12 @@ int main() {
   PrintVector("p0", p0);
   PrintVector("p1", p1);
   PrintVector("p2", p2);
-  DrawTriangle(&raster, p0, p1, p2, c0);
+  DrawTriangle(&raster, Vertex(p0, c0), Vertex(p1, c1), Vertex(p2, c2));
 
-  DrawTriangle(&raster, Vec3d(80, 80, 1), Vec3d(100, 80, 1), Vec3d(100, 100, 1),
-               Color(0, 255, 0));
+  const Color green(0, 255, 0);
+  DrawTriangle(&raster, Vertex(Vec3d(80, 80, 1), green),
+               Vertex(Vec3d(100, 80, 1), green),
+               Vertex(Vec3d(100, 100, 1), green));
 
   bool done = false;
   while (!done) {
