@@ -17,15 +17,15 @@ struct Color {
 };
 
 template <class T>
-struct Vec2 {
-  Vec2() {}
-  Vec2(const T& x, const T& y) : x(x), y(y) {}
+struct Vec3 {
+  Vec3() {}
+  Vec3(const T& x, const T& y, const T& z) : x(x), y(y), z(z) {}
   T x = T();
   T y = T();
+  T z = T();
 };
 
-using Vec2i = Vec2<int>;
-using Vec2d = Vec2<double>;
+using Vec3d = Vec3<double>;
 
 class Image {
  public:
@@ -58,13 +58,25 @@ void DrawSquare(Image* image, int x, int y, int width, int height,
 
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/rasterization-stage
 // The magnitude of the cross product between (c - a) and (b - a)
-double EdgeFunction(const Vec2d& a, const Vec2d& b, const Vec2d& c) {
+// Only considers x/y of 3D vector
+double EdgeFunction(const Vec3d& a, const Vec3d& b, const Vec3d& c) {
   return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
 }
 
+// Project from camera space to screen space
+Vec3d CameraToScreen(const Vec3d& p) {
+  return Vec3d(p.x / p.z, p.y / p.z, p.z);
+}
+
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/rasterization-stage
-void DrawTriangle(Image* image, const Vec2d& p0, const Vec2d& p1,
-                  const Vec2d& p2, const Color& color) {
+void DrawTriangle(Image* image, const Vec3d& v0, const Vec3d& v1,
+                  const Vec3d& v2, const Color& color) {
+  // Project to screen space
+  Vec3d p0 = CameraToScreen(v0);
+  Vec3d p1 = CameraToScreen(v1);
+  Vec3d p2 = CameraToScreen(v2);
+
+  // Actual rasterization
   const double area = EdgeFunction(p0, p1, p2);
 
   const int xmin = static_cast<int>(std::min(p0.x, std::min(p1.x, p2.x)));
@@ -74,7 +86,7 @@ void DrawTriangle(Image* image, const Vec2d& p0, const Vec2d& p1,
 
   for (int i = ymin; i <= ymax; ++i) {
     for (int j = xmin; j <= xmax; ++j) {
-      const Vec2d p = {j + 0.5, i + 0.5};
+      const Vec3d p = {j + 0.5, i + 0.5, 0};
       auto w0 = EdgeFunction(p1, p2, p);
       auto w1 = EdgeFunction(p2, p0, p);
       auto w2 = EdgeFunction(p0, p1, p);
@@ -123,7 +135,7 @@ int main() {
 
   Image image(WIDTH, HEIGHT);
   DrawSquare(&image, 50, 70, 20, 30, Color(255, 0, 0));
-  DrawTriangle(&image, Vec2d(80, 80), Vec2d(100, 80), Vec2d(100, 100),
+  DrawTriangle(&image, Vec3d(80, 80, 1), Vec3d(100, 80, 1), Vec3d(100, 100, 1),
                Color(0, 255, 0));
 
   bool done = false;
