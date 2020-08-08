@@ -70,6 +70,26 @@ struct Camera {
   Transform transform;
 };
 
+class Timer {
+ public:
+  Timer() {
+    last_ = SDL_GetPerformanceCounter();
+    counter_freq_ = SDL_GetPerformanceFrequency();
+  }
+
+  // tick the timer and return elapsed time in seconds since last tick
+  double Tick() {
+    const auto now = SDL_GetPerformanceCounter();
+    const double delta = static_cast<double>(now - last_) / counter_freq_;
+    last_ = now;
+    return delta;
+  }
+
+ private:
+  double counter_freq_;
+  uint64_t last_;
+};
+
 class Raster {
  public:
   Raster(int width, int height) : width_(width), height_(height) {
@@ -261,22 +281,29 @@ int main() {
   Camera camera;
   camera.transform.translation = Vector3d(0, 0, -2);
 
-  Vector3d v2 = {0, 0, 0};
+  Vector3d v0 = {0, 0, 0};
   Vector3d v1 = {0, 1, 0};
-  Vector3d v0 = {1, 1, 0};
-  Color c2 = {1, 0, 0};
+  Vector3d v2 = {1, 1, 0};
+  Vector3d v3 = {1, 0, 0};
+  Color c0 = {1, 0, 0};
   Color c1 = {0, 1, 0};
-  Color c0 = {0, 0, 1};
-  Vector2d uv2 = {0, 0};
+  Color c2 = {0, 0, 1};
+  Color c3 = {0.5, 0.5, 0};
+  Vector2d uv0 = {0, 0};
   Vector2d uv1 = {0, 1};
-  Vector2d uv0 = {1, 1};
+  Vector2d uv2 = {1, 1};
+  Vector2d uv3 = {1, 0};
 
   TriangleMesh mesh;
   mesh.vertices.push_back(Vertex(v0, c0, uv0));
   mesh.vertices.push_back(Vertex(v1, c1, uv1));
   mesh.vertices.push_back(Vertex(v2, c2, uv2));
+  mesh.vertices.push_back(Vertex(v3, c3, uv3));
 
   mesh.indices.push_back({0, 1, 2});
+  mesh.indices.push_back({0, 2, 3});
+
+  Timer timer;
 
   bool done = false;
   while (!done) {
@@ -297,9 +324,14 @@ int main() {
       }
     }
 
+    const double elapsedS = timer.Tick();
+
     // Render scene
     raster.Clear(Color(0.5, 0.5, 0.5));
     DrawSquare(&raster, 50, 70, 20, 30, Color(1, 0, 0));
+
+    mesh.transform.rotation *=
+        Quaterniond(AngleAxisd(0.1 * elapsedS * M_PI, Vector3d::UnitY()));
 
     RenderMesh(mesh, camera, &raster);
 
