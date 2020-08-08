@@ -13,6 +13,7 @@
 constexpr int WIDTH = 640;
 constexpr int HEIGHT = 480;
 
+using Eigen::Vector2d;
 using Eigen::Vector3d;
 
 // Color with components in [0, 1]
@@ -32,30 +33,14 @@ struct Color {
   }
 };
 
-template <class T>
-struct Vec2 {
-  Vec2() {}
-  Vec2(const T& x, const T& y) : x(x), y(y) {}
-  Vec2<T> operator/(double v) const { return Vec2<T>(x / v, y / v); }
-  Vec2<T> operator*(double v) const { return Vec2<T>(x * v, y * v); }
-  Vec2<T> operator+(const Vec2<T>& v) const {
-    return Vec2<T>(x + v.x, y + v.y);
-  }
-
-  T x = T();
-  T y = T();
-};
-
-using Vec2d = Vec2<double>;
-
 struct Vertex {
   Vertex() {}
   Vertex(const Vector3d& pos, const Color& col) : position(pos), color(col) {}
-  Vertex(const Vector3d& pos, const Color& col, const Vec2d& uv)
+  Vertex(const Vector3d& pos, const Color& col, const Vector2d& uv)
       : position(pos), color(col), uv(uv) {}
   Vector3d position;
   Color color;
-  Vec2d uv;
+  Vector2d uv;
 };
 
 class Raster {
@@ -149,9 +134,9 @@ void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
   const Color c1 = v1.color / v1.position.z();
   const Color c2 = v2.color / v2.position.z();
 
-  const Vec2 uv0 = v0.uv / v0.position.z();
-  const Vec2 uv1 = v1.uv / v1.position.z();
-  const Vec2 uv2 = v2.uv / v2.position.z();
+  const Vector2d uv0 = v0.uv / v0.position.z();
+  const Vector2d uv1 = v1.uv / v1.position.z();
+  const Vector2d uv2 = v2.uv / v2.position.z();
 
   // Pre-compute per-vertex 1/z
   const double one_on_z0 = 1.0 / v0.position.z();
@@ -176,11 +161,12 @@ void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
             1.0 / (w0 * one_on_z0 + w1 * one_on_z1 + w2 * one_on_z2);
         // Interpolate color based on the z-weighted vertices colors
         Color color = (c0 * w0 + c1 * w1 + c2 * w2) * z;
-        const Vec2d uv = (uv0 * w0 + uv1 * w1 + uv2 * w2) * z;
+        const Vector2d uv = (uv0 * w0 + uv1 * w1 + uv2 * w2) * z;
         if (checkerboard) {
           // checkerboard pattern
           const int M = 10;
-          float p = (fmod(uv.x * M, 1.0) > 0.5) ^ (fmod(uv.y * M, 1.0) < 0.5);
+          float p =
+              (fmod(uv.x() * M, 1.0) > 0.5) ^ (fmod(uv.y() * M, 1.0) < 0.5);
           color = color * p;
         }
         raster->at(i, j) = color;
@@ -228,9 +214,9 @@ int main() {
   Color c2 = {1, 0, 0};
   Color c1 = {0, 1, 0};
   Color c0 = {0, 0, 1};
-  Vec2d uv2 = {0, 0};
-  Vec2d uv1 = {1, 0};
-  Vec2d uv0 = {0, 1};
+  Vector2d uv2 = {0, 0};
+  Vector2d uv1 = {1, 0};
+  Vector2d uv0 = {0, 1};
 
   // Project to screen space
   Vector3d p0 = ScreenToRaster(CameraToScreen(v0), raster);
