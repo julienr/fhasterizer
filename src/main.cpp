@@ -13,6 +13,8 @@
 constexpr int WIDTH = 640;
 constexpr int HEIGHT = 480;
 
+using Eigen::Vector3d;
+
 // Color with components in [0, 1]
 struct Color {
   Color() {}
@@ -29,17 +31,6 @@ struct Color {
     return Color(r + c.r, g + c.g, b + c.b);
   }
 };
-
-template <class T>
-struct Vec3 {
-  Vec3() {}
-  Vec3(const T& x, const T& y, const T& z) : x(x), y(y), z(z) {}
-  T x = T();
-  T y = T();
-  T z = T();
-};
-
-using Vec3d = Vec3<double>;
 
 template <class T>
 struct Vec2 {
@@ -59,10 +50,10 @@ using Vec2d = Vec2<double>;
 
 struct Vertex {
   Vertex() {}
-  Vertex(const Vec3d& pos, const Color& col) : position(pos), color(col) {}
-  Vertex(const Vec3d& pos, const Color& col, const Vec2d& uv)
+  Vertex(const Vector3d& pos, const Color& col) : position(pos), color(col) {}
+  Vertex(const Vector3d& pos, const Color& col, const Vec2d& uv)
       : position(pos), color(col), uv(uv) {}
-  Vec3d position;
+  Vector3d position;
   Color color;
   Vec2d uv;
 };
@@ -104,8 +95,8 @@ T Clip(T val, T min, T max) {
   }
 }
 
-void PrintVector(const std::string& label, const Vec3d& v) {
-  printf("%s (x=%f, y=%f, z=%f)\n", label.c_str(), v.x, v.y, v.z);
+void PrintVector(const std::string& label, const Vector3d& v) {
+  printf("%s (x=%f, y=%f, z=%f)\n", label.c_str(), v.x(), v.y(), v.z());
 }
 
 void DrawSquare(Raster* raster, int x, int y, int width, int height,
@@ -118,35 +109,35 @@ void DrawSquare(Raster* raster, int x, int y, int width, int height,
 }
 
 // Project from camera space to screen space
-Vec3d CameraToScreen(const Vec3d& p) {
-  return Vec3d(p.x / p.z, p.y / p.z, p.z);
+Vector3d CameraToScreen(const Vector3d& p) {
+  return Vector3d(p.x() / p.z(), p.y() / p.z(), p.z());
 }
 
 // Project from screen space to raster space
-Vec3d ScreenToRaster(const Vec3d& p, const Raster& raster) {
-  return Vec3d((1 + p.x) * 0.5 * raster.width(),
-               (1 + p.y) * 0.5 * raster.height(), p.z);
+Vector3d ScreenToRaster(const Vector3d& p, const Raster& raster) {
+  return Vector3d((1 + p.x()) * 0.5 * raster.width(),
+                  (1 + p.y()) * 0.5 * raster.height(), p.z());
 }
 
 // The magnitude of the cross product between (c - a) and (b - a)
 // Only considers x/y of 3D vector
-double EdgeFunction(const Vec3d& a, const Vec3d& b, const Vec3d& c) {
-  return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
+double EdgeFunction(const Vector3d& a, const Vector3d& b, const Vector3d& c) {
+  return (c.x() - a.x()) * (b.y() - a.y()) - (c.y() - a.y()) * (b.x() - a.x());
 }
 
 // Draws a triangle with coordinate specified in raster space
 void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
                   const Vertex& v2, bool checkerboard = false) {
-  const Vec3d& p0 = v0.position;
-  const Vec3d& p1 = v1.position;
-  const Vec3d& p2 = v2.position;
+  const Vector3d& p0 = v0.position;
+  const Vector3d& p1 = v1.position;
+  const Vector3d& p2 = v2.position;
 
   const double area = EdgeFunction(p0, p1, p2);
 
-  int xmin = static_cast<int>(std::min(p0.x, std::min(p1.x, p2.x)));
-  int xmax = static_cast<int>(std::max(p0.x, std::max(p1.x, p2.x)));
-  int ymin = static_cast<int>(std::min(p0.y, std::min(p1.y, p2.y)));
-  int ymax = static_cast<int>(std::max(p0.y, std::max(p1.y, p2.y)));
+  int xmin = static_cast<int>(std::min(p0.x(), std::min(p1.x(), p2.x())));
+  int xmax = static_cast<int>(std::max(p0.x(), std::max(p1.x(), p2.x())));
+  int ymin = static_cast<int>(std::min(p0.y(), std::min(p1.y(), p2.y())));
+  int ymax = static_cast<int>(std::max(p0.y(), std::max(p1.y(), p2.y())));
   xmin = Clip(xmin, 0, raster->width());
   xmax = Clip(xmax, 0, raster->width());
   ymin = Clip(ymin, 0, raster->height());
@@ -154,22 +145,22 @@ void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
 
   // Divide vertex attribute (color) by vertex z do to perspective correct
   // interpolation
-  const Color c0 = v0.color / v0.position.z;
-  const Color c1 = v1.color / v1.position.z;
-  const Color c2 = v2.color / v2.position.z;
+  const Color c0 = v0.color / v0.position.z();
+  const Color c1 = v1.color / v1.position.z();
+  const Color c2 = v2.color / v2.position.z();
 
-  const Vec2 uv0 = v0.uv / v0.position.z;
-  const Vec2 uv1 = v1.uv / v1.position.z;
-  const Vec2 uv2 = v2.uv / v2.position.z;
+  const Vec2 uv0 = v0.uv / v0.position.z();
+  const Vec2 uv1 = v1.uv / v1.position.z();
+  const Vec2 uv2 = v2.uv / v2.position.z();
 
   // Pre-compute per-vertex 1/z
-  const double one_on_z0 = 1.0 / v0.position.z;
-  const double one_on_z1 = 1.0 / v1.position.z;
-  const double one_on_z2 = 1.0 / v2.position.z;
+  const double one_on_z0 = 1.0 / v0.position.z();
+  const double one_on_z1 = 1.0 / v1.position.z();
+  const double one_on_z2 = 1.0 / v2.position.z();
 
   for (int i = ymin; i <= ymax; ++i) {
     for (int j = xmin; j <= xmax; ++j) {
-      const Vec3d p = {j + 0.5, i + 0.5, 0};
+      const Vector3d p(j + 0.5, i + 0.5, 0);
       auto w0 = EdgeFunction(p1, p2, p);
       auto w1 = EdgeFunction(p2, p0, p);
       auto w2 = EdgeFunction(p0, p1, p);
@@ -231,9 +222,9 @@ int main() {
   raster.Clear(Color(0.5, 0.5, 0.5));
   DrawSquare(&raster, 50, 70, 20, 30, Color(1, 0, 0));
 
-  Vec3d v2 = {-48, -10, 82};
-  Vec3d v1 = {29, -15, 44};
-  Vec3d v0 = {13, 34, 114};
+  Vector3d v2 = {-48, -10, 82};
+  Vector3d v1 = {29, -15, 44};
+  Vector3d v0 = {13, 34, 114};
   Color c2 = {1, 0, 0};
   Color c1 = {0, 1, 0};
   Color c0 = {0, 0, 1};
@@ -242,9 +233,9 @@ int main() {
   Vec2d uv0 = {0, 1};
 
   // Project to screen space
-  Vec3d p0 = ScreenToRaster(CameraToScreen(v0), raster);
-  Vec3d p1 = ScreenToRaster(CameraToScreen(v1), raster);
-  Vec3d p2 = ScreenToRaster(CameraToScreen(v2), raster);
+  Vector3d p0 = ScreenToRaster(CameraToScreen(v0), raster);
+  Vector3d p1 = ScreenToRaster(CameraToScreen(v1), raster);
+  Vector3d p2 = ScreenToRaster(CameraToScreen(v2), raster);
   PrintVector("p0", p0);
   PrintVector("p1", p1);
   PrintVector("p2", p2);
@@ -252,9 +243,9 @@ int main() {
                Vertex(p2, c2, uv2), true);
 
   const Color green(0, 1, 0);
-  DrawTriangle(&raster, Vertex(Vec3d(80, 80, 1), green),
-               Vertex(Vec3d(100, 80, 1), green),
-               Vertex(Vec3d(100, 100, 1), green));
+  DrawTriangle(&raster, Vertex(Vector3d(80, 80, 1), green),
+               Vertex(Vector3d(100, 80, 1), green),
+               Vertex(Vector3d(100, 100, 1), green));
 
   bool done = false;
   while (!done) {
