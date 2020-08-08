@@ -7,12 +7,15 @@
 #include <vector>
 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 #include "SDL.h"
 
 constexpr int WIDTH = 640;
 constexpr int HEIGHT = 480;
 
+using Eigen::AngleAxisd;
+using Eigen::Quaterniond;
 using Eigen::Vector2d;
 using Eigen::Vector3d;
 
@@ -41,6 +44,23 @@ struct Vertex {
   Vector3d position;
   Color color;
   Vector2d uv;
+};
+
+struct Transform {
+  Transform() {
+    translation.setZero();
+    rotation.setIdentity();
+  }
+  Vector3d translation;
+  Quaterniond rotation;
+
+  Vector3d operator*(const Vector3d& v) const {
+    return rotation * v + translation;
+  }
+};
+
+struct Camera {
+  Transform transform;
 };
 
 class Raster {
@@ -91,6 +111,10 @@ void DrawSquare(Raster* raster, int x, int y, int width, int height,
       raster->at(i, j) = color;
     }
   }
+}
+
+Vector3d WorldToCamera(const Vector3d& p, const Camera& camera) {
+  return camera.transform * p;
 }
 
 // Project from camera space to screen space
@@ -208,20 +232,29 @@ int main() {
   raster.Clear(Color(0.5, 0.5, 0.5));
   DrawSquare(&raster, 50, 70, 20, 30, Color(1, 0, 0));
 
-  Vector3d v2 = {-48, -10, 82};
-  Vector3d v1 = {29, -15, 44};
-  Vector3d v0 = {13, 34, 114};
+  Camera camera;
+  camera.transform.translation = Vector3d(0, 0, -2);
+
+  Transform transform;
+  transform.rotation = AngleAxisd(0.4 * M_PI, Vector3d::UnitX());
+
+  Vector3d v2 = {0, 0, 0};
+  Vector3d v1 = {0, 1, 0};
+  Vector3d v0 = {1, 1, 0};
   Color c2 = {1, 0, 0};
   Color c1 = {0, 1, 0};
   Color c0 = {0, 0, 1};
   Vector2d uv2 = {0, 0};
-  Vector2d uv1 = {1, 0};
-  Vector2d uv0 = {0, 1};
+  Vector2d uv1 = {0, 1};
+  Vector2d uv0 = {1, 1};
 
   // Project to screen space
-  Vector3d p0 = ScreenToRaster(CameraToScreen(v0), raster);
-  Vector3d p1 = ScreenToRaster(CameraToScreen(v1), raster);
-  Vector3d p2 = ScreenToRaster(CameraToScreen(v2), raster);
+  Vector3d p0 = ScreenToRaster(
+      CameraToScreen(WorldToCamera(transform * v0, camera)), raster);
+  Vector3d p1 = ScreenToRaster(
+      CameraToScreen(WorldToCamera(transform * v1, camera)), raster);
+  Vector3d p2 = ScreenToRaster(
+      CameraToScreen(WorldToCamera(transform * v2, camera)), raster);
   PrintVector("p0", p0);
   PrintVector("p1", p1);
   PrintVector("p2", p2);
