@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include <Eigen/Dense>
+
 #include "SDL.h"
 
 constexpr int WIDTH = 640;
