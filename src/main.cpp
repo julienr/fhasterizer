@@ -59,6 +59,13 @@ struct Transform {
   }
 };
 
+struct TriangleMesh {
+  std::vector<Vertex> vertices;
+  std::vector<std::array<int, 3>> indices;
+
+  Transform transform;
+};
+
 struct Camera {
   Transform transform;
 };
@@ -199,6 +206,28 @@ void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
   }
 }
 
+void RenderMesh(const TriangleMesh& mesh, const Camera& camera,
+                Raster* raster) {
+  for (const std::array<int, 3>& triangle : mesh.indices) {
+    const Vertex& v0 = mesh.vertices[triangle[0]];
+    const Vertex& v1 = mesh.vertices[triangle[1]];
+    const Vertex& v2 = mesh.vertices[triangle[2]];
+    Vector3d p0 = ScreenToRaster(
+        CameraToScreen(WorldToCamera(mesh.transform * v0.position, camera)),
+        *raster);
+    Vector3d p1 = ScreenToRaster(
+        CameraToScreen(WorldToCamera(mesh.transform * v1.position, camera)),
+        *raster);
+    Vector3d p2 = ScreenToRaster(
+        CameraToScreen(WorldToCamera(mesh.transform * v2.position, camera)),
+        *raster);
+
+    DrawTriangle(raster, Vertex(p0, v0.color, v0.uv),
+                 Vertex(p1, v1.color, v1.uv), Vertex(p2, v2.color, v2.uv),
+                 true);
+  }
+}
+
 int main() {
   SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);
 
@@ -229,14 +258,8 @@ int main() {
   }
 
   Raster raster(WIDTH, HEIGHT);
-  raster.Clear(Color(0.5, 0.5, 0.5));
-  DrawSquare(&raster, 50, 70, 20, 30, Color(1, 0, 0));
-
   Camera camera;
   camera.transform.translation = Vector3d(0, 0, -2);
-
-  Transform transform;
-  transform.rotation = AngleAxisd(0.4 * M_PI, Vector3d::UnitX());
 
   Vector3d v2 = {0, 0, 0};
   Vector3d v1 = {0, 1, 0};
@@ -248,23 +271,12 @@ int main() {
   Vector2d uv1 = {0, 1};
   Vector2d uv0 = {1, 1};
 
-  // Project to screen space
-  Vector3d p0 = ScreenToRaster(
-      CameraToScreen(WorldToCamera(transform * v0, camera)), raster);
-  Vector3d p1 = ScreenToRaster(
-      CameraToScreen(WorldToCamera(transform * v1, camera)), raster);
-  Vector3d p2 = ScreenToRaster(
-      CameraToScreen(WorldToCamera(transform * v2, camera)), raster);
-  PrintVector("p0", p0);
-  PrintVector("p1", p1);
-  PrintVector("p2", p2);
-  DrawTriangle(&raster, Vertex(p0, c0, uv0), Vertex(p1, c1, uv1),
-               Vertex(p2, c2, uv2), true);
+  TriangleMesh mesh;
+  mesh.vertices.push_back(Vertex(v0, c0, uv0));
+  mesh.vertices.push_back(Vertex(v1, c1, uv1));
+  mesh.vertices.push_back(Vertex(v2, c2, uv2));
 
-  const Color green(0, 1, 0);
-  DrawTriangle(&raster, Vertex(Vector3d(80, 80, 1), green),
-               Vertex(Vector3d(100, 80, 1), green),
-               Vertex(Vector3d(100, 100, 1), green));
+  mesh.indices.push_back({0, 1, 2});
 
   bool done = false;
   while (!done) {
@@ -284,6 +296,12 @@ int main() {
         }
       }
     }
+
+    // Render scene
+    raster.Clear(Color(0.5, 0.5, 0.5));
+    DrawSquare(&raster, 50, 70, 20, 30, Color(1, 0, 0));
+
+    RenderMesh(mesh, camera, &raster);
 
     // Display image on screen
     {
