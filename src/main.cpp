@@ -2,12 +2,13 @@
 // http://hg.libsdl.org/SDL/file/e12c38730512/test/teststreaming.c
 // Scratchpixel rasterizer tutorial
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/rasterization-stage
-#include <cstdio>
-#include <string>
-#include <vector>
-
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
+#include <array>
+#include <cstdio>
+#include <fstream>
+#include <string>
+#include <vector>
 
 #include "SDL.h"
 
@@ -65,6 +66,97 @@ struct TriangleMesh {
 
   Transform transform;
 };
+
+double RandDouble(double min = 0, double max = 1) {
+  return min + (max - min) * rand() / static_cast<double>(RAND_MAX);
+}
+
+std::vector<std::string> SplitString(const std::string& str, const char delim) {
+  std::vector<std::string> out;
+  std::stringstream ss(str);
+  std::string tmp;
+  while (std::getline(ss, tmp, delim)) {
+    out.push_back(tmp);
+  }
+  return out;
+}
+
+// "1" => [1, -1, -1]
+// "1//2" => [1, -1, 2]
+// "1/2/3" => [1, 2, 3]
+std::array<int, 3> ParseOBJFaceElement(const std::string& str) {
+  const auto splits = SplitString(str, '/');
+
+  // OBJ uses 1-based indexing, hence the -1
+  return {std::stoi(splits[0]) - 1,
+          splits[1].size() > 0 ? std::stoi(splits[1]) - 1 : -1,
+          splits[2].size() > 0 ? std::stoi(splits[2]) - 1 : -1};
+}
+
+TriangleMesh LoadFromOBJ(const std::string& filename) {
+  TriangleMesh mesh;
+
+  std::vector<Vector3d> vertpos;
+  std::vector<Vector2d> uvs;
+  std::vector<Vector3d> normals;
+
+  std::ifstream infile(filename);
+  std::string line;
+  while (std::getline(infile, line)) {
+    std::istringstream iss(line);
+    std::string marker;
+    if (!(iss >> marker)) {
+      continue;
+    }
+    if (marker == "v") {
+      double x, y, z;
+      if (!(iss >> x >> y >> z)) {
+        fprintf(stderr, "Failed to parse line %s\n", line.c_str());
+        abort();
+      }
+      vertpos.push_back(Vector3d(x, y, z));
+    } else if (marker == "vn") {
+      double x, y, z;
+      if (!(iss >> x >> y >> z)) {
+        fprintf(stderr, "Failed to parse line %s\n", line.c_str());
+        abort();
+      }
+      normals.push_back(Vector3d(x, y, z));
+    } else if (marker == "f") {
+      std::array<std::string, 3> elements;
+      if (!(iss >> elements[0] >> elements[1] >> elements[2])) {
+        fprintf(stderr, "Failed to parse line %s\n", line.c_str());
+        abort();
+      }
+      const int nverts = mesh.vertices.size();
+      for (int i = 0; i < 3; ++i) {
+        const auto indices = ParseOBJFaceElement(elements[i]);
+        // printf("indices: %d, %d, %d\n", indices[0], indices[1], indices[2]);
+        if (indices[0] >= vertpos.size()) {
+          fprintf(stderr, "Index out of bound: %d\n", indices[0]);
+          abort();
+        }
+        Vector3d pos = vertpos[indices[0]];
+        Vector2d uv = Vector2d::Zero();
+        if (indices[1] != -1) {
+          uv = uvs[indices[1]];
+        }
+        Vector3d normal = Vector3d::Zero();
+        if (indices[2] != -1) {
+          normal = normals[indices[2]];
+        }
+        Color c = {RandDouble(), RandDouble(), RandDouble()};
+
+        mesh.vertices.push_back(Vertex(pos, c, uv));
+      }
+      mesh.indices.push_back({nverts, nverts + 1, nverts + 2});
+    } else {
+      printf("skipping line: %s\n", line.c_str());
+    }
+  }
+
+  return mesh;
+}
 
 struct Camera {
   Transform transform;
@@ -294,6 +386,7 @@ int main() {
   Vector2d uv2 = {1, 1};
   Vector2d uv3 = {1, 0};
 
+  /*
   TriangleMesh mesh;
   mesh.vertices.push_back(Vertex(v0, c0, uv0));
   mesh.vertices.push_back(Vertex(v1, c1, uv1));
@@ -302,7 +395,9 @@ int main() {
 
   mesh.indices.push_back({0, 1, 2});
   mesh.indices.push_back({0, 2, 3});
+  */
 
+  auto mesh = LoadFromOBJ("../data/cube.obj");
   Timer timer;
 
   bool done = false;
