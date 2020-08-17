@@ -212,6 +212,9 @@ using Raster = Array2D<Color>;
 struct Buffers {
   Buffers(int width, int height) : color(width, height), depth(width, height) {}
 
+  int width() const { return color.width(); }
+  int height() const { return color.height(); }
+
   Raster color;
   Array2D<double> depth;
 };
@@ -262,7 +265,7 @@ double EdgeFunction(const Vector3d& a, const Vector3d& b, const Vector3d& c) {
 }
 
 // Draws a triangle with coordinate specified in raster space
-void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
+void DrawTriangle(Buffers* buffers, const Vertex& v0, const Vertex& v1,
                   const Vertex& v2, bool checkerboard = false) {
   const Vector3d& p0 = v0.position;
   const Vector3d& p1 = v1.position;
@@ -274,10 +277,10 @@ void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
   int xmax = static_cast<int>(std::max(p0.x(), std::max(p1.x(), p2.x())));
   int ymin = static_cast<int>(std::min(p0.y(), std::min(p1.y(), p2.y())));
   int ymax = static_cast<int>(std::max(p0.y(), std::max(p1.y(), p2.y())));
-  xmin = Clip(xmin, 0, raster->width());
-  xmax = Clip(xmax, 0, raster->width());
-  ymin = Clip(ymin, 0, raster->height());
-  ymax = Clip(ymax, 0, raster->height());
+  xmin = Clip(xmin, 0, buffers->width());
+  xmax = Clip(xmax, 0, buffers->width());
+  ymin = Clip(ymin, 0, buffers->height());
+  ymax = Clip(ymax, 0, buffers->height());
 
   // Divide vertex attribute (color) by vertex z do to perspective correct
   // interpolation
@@ -320,29 +323,29 @@ void DrawTriangle(Raster* raster, const Vertex& v0, const Vertex& v1,
               (fmod(uv.x() * M, 1.0) > 0.5) ^ (fmod(uv.y() * M, 1.0) < 0.5);
           color = color * p;
         }
-        raster->at(i, j) = color;
+        buffers->color.at(i, j) = color;
       }
     }
   }
 }
 
 void RenderMesh(const TriangleMesh& mesh, const Camera& camera,
-                Raster* raster) {
+                Buffers* buffers) {
   for (const std::array<int, 3>& triangle : mesh.indices) {
     const Vertex& v0 = mesh.vertices[triangle[0]];
     const Vertex& v1 = mesh.vertices[triangle[1]];
     const Vertex& v2 = mesh.vertices[triangle[2]];
     Vector3d p0 = ScreenToRaster(
         CameraToScreen(WorldToCamera(mesh.transform * v0.position, camera)),
-        *raster);
+        buffers->color);
     Vector3d p1 = ScreenToRaster(
         CameraToScreen(WorldToCamera(mesh.transform * v1.position, camera)),
-        *raster);
+        buffers->color);
     Vector3d p2 = ScreenToRaster(
         CameraToScreen(WorldToCamera(mesh.transform * v2.position, camera)),
-        *raster);
+        buffers->color);
 
-    DrawTriangle(raster, Vertex(p0, v0.color, v0.uv),
+    DrawTriangle(buffers, Vertex(p0, v0.color, v0.uv),
                  Vertex(p1, v1.color, v1.uv), Vertex(p2, v2.color, v2.uv),
                  true);
   }
@@ -421,7 +424,7 @@ int main() {
   Window window("main");
   Window window_depth("depth buffer");
 
-  Raster raster(WIDTH, HEIGHT);
+  Buffers buffers(WIDTH, HEIGHT);
   Camera camera;
   camera.transform.translation = Vector3d(0, 0, -2);
 
@@ -474,15 +477,16 @@ int main() {
     const double elapsedS = timer.Tick();
 
     // Render scene
-    raster.Clear(Color(0.5, 0.5, 0.5));
-    DrawSquare(&raster, 50, 70, 20, 30, Color(1, 0, 0));
+    buffers.color.Clear(Color(0.5, 0.5, 0.5));
+    buffers.depth.Clear(0);
+    DrawSquare(&buffers.color, 50, 70, 20, 30, Color(1, 0, 0));
 
     mesh.transform.rotation *=
         Quaterniond(AngleAxisd(0.1 * elapsedS * M_PI, Vector3d::UnitY()));
 
-    RenderMesh(mesh, camera, &raster);
+    RenderMesh(mesh, camera, &buffers);
 
-    window.Display(raster);
+    window.Display(buffers.color);
   }
   SDL_Quit();
   return 0;
