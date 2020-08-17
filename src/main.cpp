@@ -440,30 +440,6 @@ int main() {
   Camera camera;
   camera.transform.translation = Vector3d(0, 0, -2);
 
-  Vector3d v0 = {0, 0, 0};
-  Vector3d v1 = {0, 1, 0};
-  Vector3d v2 = {1, 1, 0};
-  Vector3d v3 = {1, 0, 0};
-  Color c0 = {1, 0, 0};
-  Color c1 = {0, 1, 0};
-  Color c2 = {0, 0, 1};
-  Color c3 = {0.5, 0.5, 0};
-  Vector2d uv0 = {0, 0};
-  Vector2d uv1 = {0, 1};
-  Vector2d uv2 = {1, 1};
-  Vector2d uv3 = {1, 0};
-
-  /*
-  TriangleMesh mesh;
-  mesh.vertices.push_back(Vertex(v0, c0, uv0));
-  mesh.vertices.push_back(Vertex(v1, c1, uv1));
-  mesh.vertices.push_back(Vertex(v2, c2, uv2));
-  mesh.vertices.push_back(Vertex(v3, c3, uv3));
-
-  mesh.indices.push_back({0, 1, 2});
-  mesh.indices.push_back({0, 2, 3});
-  */
-
   auto mesh = LoadFromOBJ("../data/teapot.obj");
   mesh.transform.translation = Vector3d(0, -1, -5);
   Timer timer;
@@ -495,7 +471,6 @@ int main() {
     // Render scene
     buffers.color.Clear(Color(0.5, 0.5, 0.5));
     buffers.depth.Clear(zmax);
-    DrawSquare(&buffers.color, 50, 70, 20, 30, Color(1, 0, 0));
 
     mesh.transform.rotation *=
         Quaterniond(AngleAxisd(0.1 * elapsedS * M_PI, Vector3d::UnitY()));
