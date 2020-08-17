@@ -254,8 +254,10 @@ Vector3d CameraToScreen(const Vector3d& p) {
 
 // Project from screen space to raster space
 Vector3d ScreenToRaster(const Vector3d& p, const Raster& raster) {
-  return Vector3d((1 + p.x()) * 0.5 * raster.width(),
-                  (1 + p.y()) * 0.5 * raster.height(), p.z());
+  return Vector3d(
+      (1 + p.x()) * 0.5 * raster.width(), (1 + p.y()) * 0.5 * raster.height(),
+      // Reverse z to have positive values stored in the depth buffer
+      -p.z());
 }
 
 // The magnitude of the cross product between (c - a) and (b - a)
@@ -313,6 +315,10 @@ void DrawTriangle(Buffers* buffers, const Vertex& v0, const Vertex& v1,
         w2 /= area;
         const double z =
             1.0 / (w0 * one_on_z0 + w1 * one_on_z1 + w2 * one_on_z2);
+        // Depth test (our z is negative, but we reverse z in the depth buffer
+        if (z < 0 || z > buffers->depth.at(i, j)) {
+          continue;
+        }
         // Interpolate color based on the z-weighted vertices colors
         Color color = (c0 * w0 + c1 * w1 + c2 * w2) * z;
         const Vector2d uv = (uv0 * w0 + uv1 * w1 + uv2 * w2) * z;
@@ -457,10 +463,11 @@ int main() {
   */
 
   auto mesh = LoadFromOBJ("../data/cube.obj");
+  mesh.transform.translation = Vector3d(0, -1, 0);
   Timer timer;
 
   const double zmin = 0;
-  const double zmax = 2;
+  const double zmax = 5;
 
   bool done = false;
   while (!done) {
@@ -485,7 +492,7 @@ int main() {
 
     // Render scene
     buffers.color.Clear(Color(0.5, 0.5, 0.5));
-    buffers.depth.Clear(0);
+    buffers.depth.Clear(zmax);
     DrawSquare(&buffers.color, 50, 70, 20, 30, Color(1, 0, 0));
 
     mesh.transform.rotation *=
