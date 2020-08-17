@@ -89,8 +89,10 @@ std::array<int, 3> ParseOBJFaceElement(const std::string& str) {
 
   // OBJ uses 1-based indexing, hence the -1
   return {std::stoi(splits[0]) - 1,
-          splits[1].size() > 0 ? std::stoi(splits[1]) - 1 : -1,
-          splits[2].size() > 0 ? std::stoi(splits[2]) - 1 : -1};
+          (splits.size() > 1 && splits[1].size() > 0) ? std::stoi(splits[1]) - 1
+                                                      : -1,
+          (splits.size() > 2 && splits[2].size() > 0) ? std::stoi(splits[2]) - 1
+                                                      : -1};
 }
 
 TriangleMesh LoadFromOBJ(const std::string& filename) {
@@ -462,12 +464,12 @@ int main() {
   mesh.indices.push_back({0, 2, 3});
   */
 
-  auto mesh = LoadFromOBJ("../data/cube.obj");
-  mesh.transform.translation = Vector3d(0, -1, 0);
+  auto mesh = LoadFromOBJ("../data/teapot.obj");
+  mesh.transform.translation = Vector3d(0, -1, -5);
   Timer timer;
 
   const double zmin = 0;
-  const double zmax = 5;
+  const double zmax = 10;
 
   bool done = false;
   while (!done) {
