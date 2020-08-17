@@ -324,6 +324,7 @@ void DrawTriangle(Buffers* buffers, const Vertex& v0, const Vertex& v1,
           color = color * p;
         }
         buffers->color.at(i, j) = color;
+        buffers->depth.at(i, j) = z;
       }
     }
   }
@@ -380,7 +381,9 @@ class Window {
     SDL_DestroyWindow(window_);
   }
 
-  void Display(const Raster& raster) {
+  template <class T>
+  void Display(const Array2D<T>& raster,
+               const std::function<Color(const T& v)>& to_color) {
     // Display image on screen
     uint8_t* pixels;
     int pitch;
@@ -393,7 +396,8 @@ class Window {
       for (int col = 0; col < raster.width(); ++col) {
         uint32_t* ptr = reinterpret_cast<uint32_t*>(pixels + row * pitch +
                                                     col * sizeof(uint32_t));
-        const Color& color = raster(row, col);
+        const Color color = to_color(raster(row, col));
+        // const Color& color = raster(row, col);
         const uint8_t r = static_cast<uint8_t>(color.r * 255);
         const uint8_t g = static_cast<uint8_t>(color.g * 255);
         const uint8_t b = static_cast<uint8_t>(color.b * 255);
@@ -455,6 +459,9 @@ int main() {
   auto mesh = LoadFromOBJ("../data/cube.obj");
   Timer timer;
 
+  const double zmin = 0;
+  const double zmax = 2;
+
   bool done = false;
   while (!done) {
     // Event management
@@ -486,7 +493,11 @@ int main() {
 
     RenderMesh(mesh, camera, &buffers);
 
-    window.Display(buffers.color);
+    window.Display<Color>(buffers.color, [](const Color& c) { return c; });
+    window_depth.Display<double>(buffers.depth, [&](double v) {
+      const double s = (v - zmin) / (zmax - zmin);
+      return Color(s, s, s);
+    });
   }
   SDL_Quit();
   return 0;
