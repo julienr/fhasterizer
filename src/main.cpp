@@ -182,30 +182,38 @@ class Timer {
   uint64_t last_;
 };
 
-class Raster {
+template <class T>
+class Array2D {
  public:
-  Raster(int width, int height) : width_(width), height_(height) {
-    pixels_.resize(width * height);
+  Array2D(int width, int height) : width_(width), height_(height) {
+    data_.resize(width * height);
   }
 
-  Color& operator()(int i, int j) { return pixels_[i * width_ + j]; }
+  T& operator()(int i, int j) { return data_[i * width_ + j]; }
 
-  const Color& operator()(int i, int j) const {
-    return pixels_[i * width_ + j];
-  }
+  const T& operator()(int i, int j) const { return data_[i * width_ + j]; }
 
-  Color& at(int i, int j) { return this->operator()(i, j); }
-  const Color& at(int i, int j) const { return this->operator()(i, j); }
+  T& at(int i, int j) { return this->operator()(i, j); }
+  const T& at(int i, int j) const { return this->operator()(i, j); }
 
   int width() const { return width_; }
   int height() const { return height_; }
 
-  void Clear(const Color& c) { std::fill(pixels_.begin(), pixels_.end(), c); }
+  void Clear(const T& c) { std::fill(data_.begin(), data_.end(), c); }
 
  private:
   int width_;
   int height_;
-  std::vector<Color> pixels_;
+  std::vector<T> data_;
+};
+
+using Raster = Array2D<Color>;
+
+struct Buffers {
+  Buffers(int width, int height) : color(width, height), depth(width, height) {}
+
+  Raster color;
+  Array2D<double> depth;
 };
 
 template <class T>
@@ -411,6 +419,7 @@ int main() {
   }
 
   Window window("main");
+  Window window_depth("depth buffer");
 
   Raster raster(WIDTH, HEIGHT);
   Camera camera;
