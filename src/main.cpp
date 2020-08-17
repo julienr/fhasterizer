@@ -340,6 +340,68 @@ void RenderMesh(const TriangleMesh& mesh, const Camera& camera,
   }
 }
 
+class Window {
+ public:
+  Window(const std::string& name) {
+    window_ = SDL_CreateWindow(name.c_str(), SDL_WINDOWPOS_UNDEFINED,
+                               SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, 0);
+    if (!window_) {
+      fprintf(stderr, "Could not create window\n");
+      abort();
+    }
+    renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_SOFTWARE);
+    if (!renderer_) {
+      fprintf(stderr, "Could not create renderer\n");
+      abort();
+    }
+
+    texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888,
+                                 SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+    if (!texture_) {
+      fprintf(stderr, "Could not create texture\n");
+      abort();
+    }
+  }
+
+  ~Window() {
+    SDL_DestroyTexture(texture_);
+    SDL_DestroyRenderer(renderer_);
+    SDL_DestroyWindow(window_);
+  }
+
+  void Display(const Raster& raster) {
+    // Display image on screen
+    uint8_t* pixels;
+    int pitch;
+    if (SDL_LockTexture(texture_, NULL, reinterpret_cast<void**>(&pixels),
+                        &pitch) < 0) {
+      fprintf(stderr, "Failed to lock texture: %s\n", SDL_GetError());
+      abort();
+    }
+    for (int row = 0; row < raster.height(); ++row) {
+      for (int col = 0; col < raster.width(); ++col) {
+        uint32_t* ptr = reinterpret_cast<uint32_t*>(pixels + row * pitch +
+                                                    col * sizeof(uint32_t));
+        const Color& color = raster(row, col);
+        const uint8_t r = static_cast<uint8_t>(color.r * 255);
+        const uint8_t g = static_cast<uint8_t>(color.g * 255);
+        const uint8_t b = static_cast<uint8_t>(color.b * 255);
+        *ptr = 0x000000FF | (r << 24) | (g << 16) | (b << 8);
+      }
+    }
+
+    SDL_UnlockTexture(texture_);
+    SDL_SetRenderTarget(renderer_, NULL);
+    SDL_RenderCopy(renderer_, texture_, NULL, NULL);
+    SDL_RenderPresent(renderer_);
+  }
+
+ private:
+  SDL_Window* window_;
+  SDL_Texture* texture_;
+  SDL_Renderer* renderer_;
+};
+
 int main() {
   SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO);
 
@@ -347,27 +409,8 @@ int main() {
     fprintf(stderr, "Could not init SDL: %s\n", SDL_GetError());
     return 1;
   }
-  SDL_Window* window =
-      SDL_CreateWindow("fhrasterizer", SDL_WINDOWPOS_UNDEFINED,
-                       SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, 0);
-  if (!window) {
-    fprintf(stderr, "Could not create window\n");
-    return 1;
-  }
-  SDL_Renderer* renderer =
-      SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
-  if (!renderer) {
-    fprintf(stderr, "Could not create renderer\n");
-    return 1;
-  }
 
-  SDL_Texture* texture =
-      SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
-                        SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
-  if (!texture) {
-    fprintf(stderr, "Could not create texture\n");
-    return 1;
-  }
+  Window window("main");
 
   Raster raster(WIDTH, HEIGHT);
   Camera camera;
@@ -430,37 +473,8 @@ int main() {
 
     RenderMesh(mesh, camera, &raster);
 
-    // Display image on screen
-    {
-      uint8_t* pixels;
-      int pitch;
-      if (SDL_LockTexture(texture, NULL, reinterpret_cast<void**>(&pixels),
-                          &pitch) < 0) {
-        fprintf(stderr, "Failed to lock texture: %s\n", SDL_GetError());
-        return 1;
-      }
-      for (int row = 0; row < HEIGHT; ++row) {
-        for (int col = 0; col < WIDTH; ++col) {
-          uint32_t* ptr = reinterpret_cast<uint32_t*>(pixels + row * pitch +
-                                                      col * sizeof(uint32_t));
-          const Color& color = raster(row, col);
-          const uint8_t r = static_cast<uint8_t>(color.r * 255);
-          const uint8_t g = static_cast<uint8_t>(color.g * 255);
-          const uint8_t b = static_cast<uint8_t>(color.b * 255);
-          *ptr = 0x000000FF | (r << 24) | (g << 16) | (b << 8);
-        }
-      }
-    }
-
-    SDL_UnlockTexture(texture);
-    SDL_SetRenderTarget(renderer, NULL);
-    SDL_RenderCopy(renderer, texture, NULL, NULL);
-    SDL_RenderPresent(renderer);
+    window.Display(raster);
   }
-
-  SDL_DestroyTexture(texture);
-  SDL_DestroyRenderer(renderer);
-  SDL_DestroyWindow(window);
   SDL_Quit();
   return 0;
 }
