@@ -218,6 +218,69 @@ class Array2D {
 
 using Raster = Array2D<Color>;
 
+// Loads a binary .ppm file (e.g. exported from Gimp by selecting PPM and then
+// 'raw' format)
+Raster LoadBinaryPPM(const std::string& filename) {
+  std::ifstream infile(filename, std::ios::binary);
+  int width, height;
+  int maxval;
+
+  auto nextline = [&]() {
+    std::string line;
+    while (true) {
+      std::getline(infile, line, '\n');
+      if (line.find('#') != 0) {
+        return line;
+      }
+      if (infile.eof()) {
+        fprintf(stderr, "No more data\n");
+        abort();
+      }
+    }
+  };
+  {
+    auto line = nextline();
+    if (line != "P6") {
+      fprintf(stderr, "Wrong format: %s\n", line.c_str());
+      abort();
+    }
+  }
+  {
+    auto line = nextline();
+    std::istringstream iss(line);
+    if (!(iss >> width >> height)) {
+      fprintf(stderr, "Failed to read size: %s\n", line.c_str());
+      abort();
+    }
+  }
+  {
+    auto line = nextline();
+    std::istringstream iss(line);
+    if (!(iss >> maxval)) {
+      fprintf(stderr, "Failed to read maxval: %s\n", line.c_str());
+      abort();
+    }
+  }
+  fprintf(stdout, "Texture with width=%d, height=%d, maxval=%d\n", width,
+          height, maxval);
+  Raster raster(width, height);
+  for (int i = 0; i < height; ++i) {
+    for (int j = 0; j < width; ++j) {
+      uint8_t val[3];
+      infile.read(reinterpret_cast<char*>(val), 3);
+      if (infile.eof()) {
+        fprintf(stderr, "Incomplete file at i=%d, j=%d\n", i, j);
+        abort();
+      }
+      Color c(static_cast<double>(val[0]) / maxval,
+              static_cast<double>(val[1]) / maxval,
+              static_cast<double>(val[2]) / maxval);
+      raster(i, j) = c;
+    }
+  }
+  return raster;
+}
+
 struct Buffers {
   Buffers(int width, int height) : color(width, height), depth(width, height) {}
 
@@ -369,9 +432,9 @@ void RenderMesh(const TriangleMesh& mesh, const Camera& camera,
 
 class Window {
  public:
-  Window(const std::string& name) {
+  Window(const std::string& name, int width = WIDTH, int height = HEIGHT) {
     window_ = SDL_CreateWindow(name.c_str(), SDL_WINDOWPOS_UNDEFINED,
-                               SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, 0);
+                               SDL_WINDOWPOS_UNDEFINED, width, height, 0);
     if (!window_) {
       fprintf(stderr, "Could not create window\n");
       abort();
@@ -383,7 +446,7 @@ class Window {
     }
 
     texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888,
-                                 SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+                                 SDL_TEXTUREACCESS_STREAMING, width, height);
     if (!texture_) {
       fprintf(stderr, "Could not create texture\n");
       abort();
@@ -412,7 +475,6 @@ class Window {
         uint32_t* ptr = reinterpret_cast<uint32_t*>(pixels + row * pitch +
                                                     col * sizeof(uint32_t));
         const Color color = to_color(raster(row, col));
-        // const Color& color = raster(row, col);
         const uint8_t r = static_cast<uint8_t>(color.r * 255);
         const uint8_t g = static_cast<uint8_t>(color.g * 255);
         const uint8_t b = static_cast<uint8_t>(color.b * 255);
@@ -447,9 +509,13 @@ int main() {
   Camera camera;
   camera.transform.translation = Vector3d(0, 0, -2);
 
+  Raster texture = LoadBinaryPPM("../data/capsule/capsule0.ppm");
   auto mesh = LoadFromOBJ("../data/capsule/capsule.obj");
   mesh.transform.translation = Vector3d(0, -1, -5);
   Timer timer;
+
+  // Uncomment this + call to display below to debug texture loading
+  // Window window_texture("texture", texture.width(), texture.height());
 
   const double zmin = 0;
   const double zmax = 10;
@@ -489,6 +555,7 @@ int main() {
       const double s = (v - zmin) / (zmax - zmin);
       return Color(s, s, s);
     });
+    // window_texture.Display<Color>(texture, [](const Color& c) { return c; });
   }
   SDL_Quit();
   return 0;
