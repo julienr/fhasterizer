@@ -124,6 +124,13 @@ TriangleMesh LoadFromOBJ(const std::string& filename) {
         abort();
       }
       normals.push_back(Vector3d(x, y, z));
+    } else if (marker == "vt") {
+      double u, v;
+      if (!(iss >> u >> v)) {
+        fprintf(stderr, "Failed to parse line %s\n", line.c_str());
+        abort();
+      }
+      uvs.push_back(Vector2d(u, v));
     } else if (marker == "f") {
       std::array<std::string, 3> elements;
       if (!(iss >> elements[0] >> elements[1] >> elements[2])) {
@@ -440,7 +447,7 @@ int main() {
   Camera camera;
   camera.transform.translation = Vector3d(0, 0, -2);
 
-  auto mesh = LoadFromOBJ("../data/teapot.obj");
+  auto mesh = LoadFromOBJ("../data/capsule/capsule.obj");
   mesh.transform.translation = Vector3d(0, -1, -5);
   Timer timer;
 
