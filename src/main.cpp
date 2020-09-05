@@ -527,12 +527,12 @@ int main() {
 
   Buffers buffers(WIDTH, HEIGHT);
   Camera camera;
-  camera.transform.translation = Vector3d(0, 0, -2);
+  camera.transform.translation = Vector3d(0, 0, -1);
 
-  // Raster texture = LoadBinaryPPM("../data/capsule/capsule0.ppm");
-  Raster texture = MakeCheckerboard();
+  Raster texture = LoadBinaryPPM("../data/capsule/capsule0.ppm");
+  // Raster texture = MakeCheckerboard();
   auto mesh = LoadFromOBJ("../data/capsule/capsule.obj");
-  mesh.transform.translation = Vector3d(0, -1, -5);
+  mesh.transform.translation = Vector3d(0, -0.5, -2);
   Timer timer;
 
   // Uncomment this + call to display below to debug texture loading
