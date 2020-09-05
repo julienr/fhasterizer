@@ -5,7 +5,7 @@
 
 A toy C++ software rasterizer.
 
-This uses SDL2 (to display windows) and Eigen (for all the math stuff).
+This uses SDL2 (just for window management, no drawing) and Eigen (for all the math stuff).
 
 Current features:
 - Basic .obj file loader
