@@ -415,8 +415,10 @@ void DrawTriangle(Buffers* buffers, const Vertex& v0, const Vertex& v1,
         // Interpolate color based on the z-weighted vertices colors
         Color color = (c0 * w0 + c1 * w1 + c2 * w2) * z;
         const Vector2d uv = (uv0 * w0 + uv1 * w1 + uv2 * w2) * z;
-        int texj = static_cast<int>(Clip(uv.x(), 0.0, 1.0) * texture.width());
-        int texi = static_cast<int>(Clip(uv.y(), 0.0, 1.0) * texture.height());
+        int texj =
+            static_cast<int>(Clip(1 - uv.x(), 0.0, 1.0) * texture.width());
+        int texi =
+            static_cast<int>(Clip(1 - uv.y(), 0.0, 1.0) * texture.height());
         Color texColor = texture(texi, texj);
         color = color * texColor;
         buffers->color.at(i, j) = color;
