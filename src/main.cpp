@@ -522,8 +522,8 @@ int main() {
     return 1;
   }
 
-  Window window("main");
   Window window_depth("depth buffer");
+  Window window("main");
 
   Buffers buffers(WIDTH, HEIGHT);
   Camera camera;
