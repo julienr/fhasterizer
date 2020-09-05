@@ -30,6 +30,10 @@ struct Color {
 
   Color operator*(double v) const { return Color(r * v, g * v, b * v); }
 
+  Color operator*(const Color& c) const {
+    return Color(r * c.r, g * c.g, b * c.b);
+  }
+
   Color operator/(double v) const { return Color(r / v, g / v, b / v); }
 
   Color operator+(const Color& c) const {
@@ -95,7 +99,8 @@ std::array<int, 3> ParseOBJFaceElement(const std::string& str) {
                                                       : -1};
 }
 
-TriangleMesh LoadFromOBJ(const std::string& filename) {
+TriangleMesh LoadFromOBJ(const std::string& filename,
+                         bool rand_vert_colors = false) {
   TriangleMesh mesh;
 
   std::vector<Vector3d> vertpos;
@@ -154,8 +159,10 @@ TriangleMesh LoadFromOBJ(const std::string& filename) {
         if (indices[2] != -1) {
           normal = normals[indices[2]];
         }
-        Color c = {RandDouble(), RandDouble(), RandDouble()};
-
+        Color c(1, 1, 1);
+        if (rand_vert_colors) {
+          c = {RandDouble(), RandDouble(), RandDouble()};
+        }
         mesh.vertices.push_back(Vertex(pos, c, uv));
       }
       mesh.indices.push_back({nverts, nverts + 1, nverts + 2});
@@ -354,7 +361,7 @@ double EdgeFunction(const Vector3d& a, const Vector3d& b, const Vector3d& c) {
 
 // Draws a triangle with coordinate specified in raster space
 void DrawTriangle(Buffers* buffers, const Vertex& v0, const Vertex& v1,
-                  const Vertex& v2, bool checkerboard = false) {
+                  const Vertex& v2, const Raster& texture) {
   const Vector3d& p0 = v0.position;
   const Vector3d& p1 = v1.position;
   const Vector3d& p2 = v2.position;
@@ -408,13 +415,10 @@ void DrawTriangle(Buffers* buffers, const Vertex& v0, const Vertex& v1,
         // Interpolate color based on the z-weighted vertices colors
         Color color = (c0 * w0 + c1 * w1 + c2 * w2) * z;
         const Vector2d uv = (uv0 * w0 + uv1 * w1 + uv2 * w2) * z;
-        if (checkerboard) {
-          // checkerboard pattern
-          const int M = 10;
-          float p =
-              (fmod(uv.x() * M, 1.0) > 0.5) ^ (fmod(uv.y() * M, 1.0) < 0.5);
-          color = color * p;
-        }
+        int texj = static_cast<int>(Clip(uv.x(), 0.0, 1.0) * texture.width());
+        int texi = static_cast<int>(Clip(uv.y(), 0.0, 1.0) * texture.height());
+        Color texColor = texture(texi, texj);
+        color = color * texColor;
         buffers->color.at(i, j) = color;
         buffers->depth.at(i, j) = z;
       }
@@ -422,8 +426,8 @@ void DrawTriangle(Buffers* buffers, const Vertex& v0, const Vertex& v1,
   }
 }
 
-void RenderMesh(const TriangleMesh& mesh, const Camera& camera,
-                Buffers* buffers) {
+void RenderMesh(const TriangleMesh& mesh, const Raster& texture,
+                const Camera& camera, Buffers* buffers) {
   for (const std::array<int, 3>& triangle : mesh.indices) {
     const Vertex& v0 = mesh.vertices[triangle[0]];
     const Vertex& v1 = mesh.vertices[triangle[1]];
@@ -440,7 +444,7 @@ void RenderMesh(const TriangleMesh& mesh, const Camera& camera,
 
     DrawTriangle(buffers, Vertex(p0, v0.color, v0.uv),
                  Vertex(p1, v1.color, v1.uv), Vertex(p2, v2.color, v2.uv),
-                 true);
+                 texture);
   }
 }
 
@@ -523,7 +527,8 @@ int main() {
   Camera camera;
   camera.transform.translation = Vector3d(0, 0, -2);
 
-  Raster texture = LoadBinaryPPM("../data/capsule/capsule0.ppm");
+  // Raster texture = LoadBinaryPPM("../data/capsule/capsule0.ppm");
+  Raster texture = MakeCheckerboard();
   auto mesh = LoadFromOBJ("../data/capsule/capsule.obj");
   mesh.transform.translation = Vector3d(0, -1, -5);
   Timer timer;
@@ -562,7 +567,7 @@ int main() {
     mesh.transform.rotation *=
         Quaterniond(AngleAxisd(0.1 * elapsedS * M_PI, Vector3d::UnitY()));
 
-    RenderMesh(mesh, camera, &buffers);
+    RenderMesh(mesh, texture, camera, &buffers);
 
     window.Display<Color>(buffers.color, [](const Color& c) { return c; });
     window_depth.Display<double>(buffers.depth, [&](double v) {
