@@ -281,6 +281,20 @@ Raster LoadBinaryPPM(const std::string& filename) {
   return raster;
 }
 
+Raster MakeCheckerboard() {
+  Raster raster(256, 256);
+  for (int i = 0; i < raster.height(); ++i) {
+    for (int j = 0; j < raster.width(); ++j) {
+      const double u = static_cast<double>(j) / raster.width();
+      const double v = static_cast<double>(i) / raster.height();
+      const int M = 10;
+      float p = (fmod(u * M, 1.0) > 0.5) ^ (fmod(v * M, 1.0) < 0.5);
+      raster(i, j) = Color(1, 1, 1) * p;
+    }
+  }
+  return raster;
+}
+
 struct Buffers {
   Buffers(int width, int height) : color(width, height), depth(width, height) {}
 
